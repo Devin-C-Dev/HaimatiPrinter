@@ -150,21 +150,37 @@
             border: none !important;
             /* 使用绝对定位确保正方形且不超出相纸 */
             position: absolute;
-            /* 精确边距（恢复到之前验证过的有效方案）：
+            /* 使用 calc() 直接计算像素值（更可靠）：
                相纸: 72mm宽 × 86mm高
                成像: 62mm × 62mm正方形
-               上边距: 5mm = 5/86 = 5.81%
+               上边距: 5mm，下边距: 19mm，左右边距: 5mm
+               比例：宽度260px对应72mm，所以 1mm = 260/72 ≈ 3.611px
+               上边距 = 5mm × 3.611 ≈ 18.06px
+               左右边距 = 5mm × 3.611 ≈ 18.06px
+               成像区域尺寸 = 62mm × 3.611 ≈ 223.88px
             */
-            top: 5.81%;
-            height: 72.09%;  /* 62mm / 86mm */
-            /* 水平居中，左右自动形成相等边距 */
-            left: 50%;
-            transform: translateX(-50%);
-            /* 设置宽度等于高度，形成正方形 */
-            width: calc(72.09% * 86 / 72);  /* 根据高度计算对应宽度 */
+            top: 18px;
+            left: 18px;
+            right: 18px;
+            /* 高度也设置为224px，形成正方形 */
+            height: 224px;
             overflow: hidden;
             border-radius: 0;
             box-sizing: border-box;
+        }
+
+        /* 移动端适配：使用相对单位重新计算 */
+        @media (max-width: 480px) {
+            .polaroid-image-area {
+                /* 在移动端，相纸宽度是 70vw
+                   成像区域宽度 = 70vw - (5mm + 5mm)的占比
+                   简化计算：使用vw单位
+                */
+                top: 3.9vw;   /* 约 5mm */
+                left: 3.9vw;  /* 约 5mm */
+                right: 3.9vw; /* 约 5mm */
+                height: 48.6vw; /* 约 62mm */
+            }
         }
 
         /* 确保照片等比例缩放，不拉伸变形 - 使用!important强制生效 */
