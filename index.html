@@ -1,0 +1,2190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+    <title>拍立得相机 | Instax Camera</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,200..800;1,6..72,200..800&family=Work+Sans:wght@300;400;500;600&family=Merriweather:ital,wght@0,300;0,400;1,300&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#be004c",
+                        "background-light": "#f7f7f7",
+                        "on-surface": "#2d3432",
+                    },
+                    fontFamily: {
+                        "headline": ["Space Grotesk"],
+                        "body": ["Newsreader"],
+                        "label": ["Work Sans"],
+                        "space-grotesk": ["Space Grotesk"],
+                        "serif": ["Merriweather"]
+                    },
+                    borderRadius: {"DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "full": "9999px"},
+                    animation: {
+                        'shimmer': 'shimmer 2s infinite',
+                        'shake': 'shake 0.5s ease-in-out infinite',
+                    },
+                    keyframes: {
+                        shimmer: {
+                            '0%': { 'background-position': '-200% 0' },
+                            '100%': { 'background-position': '200% 0' }
+                        },
+                        shake: {
+                            '0%, 100%': { transform: 'translateX(0)' },
+                            '25%': { transform: 'translateX(-5px)' },
+                            '75%': { transform: 'translateX(5px)' }
+                        }
+                    }
+                },
+            },
+        }
+    </script>
+    <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+        html, body {
+            overscroll-behavior: none;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24
+        }
+        .material-symbols-outlined.filled {
+            font-variation-settings: "FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24
+        }
+        .inner-bevel {
+            box-shadow: inset 0 1px 2px rgba(252, 249, 248, 0.1), inset 0 -1px 2px rgba(0, 0, 0, 0.8)
+        }
+        .tactile-shadow {
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(252, 249, 248, 0.05)
+        }
+        .shimmer {
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite;
+        }
+        .polaroid-shadow {
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.06);
+        }
+        /* 页面背景 - 纯色 + 布纹纹理 */
+        .linen-texture {
+            background-color: #f7f7f7;
+            background-image:
+                repeating-linear-gradient(
+                    0deg,
+                    transparent,
+                    transparent 2px,
+                    rgba(0, 0, 0, 0.02) 2px,
+                    rgba(0, 0, 0, 0.02) 4px
+                ),
+                repeating-linear-gradient(
+                    90deg,
+                    transparent,
+                    transparent 2px,
+                    rgba(0, 0, 0, 0.015) 2px,
+                    rgba(0, 0, 0, 0.015) 4px
+                );
+        }
+        /* 相机纹理 */
+        .camera-texture {
+            background-image: url(https://lh3.googleusercontent.com/aida-public/AB6AXuDQE7u1_HlZSbchncOqgbEcpRseMe9oSUjX2Ihdq78ahMM0yVwv9CaY70aJieAOvLRLLyLDUdG-gi_soOsgScwbq4gWnt3ToWu4m3JW2U-whRBpHkHi3aTVVm7d-k5TMO55CJzyIFGKwWUFsfGevJ0WUFA8GTViPPl4U3LCyhhpDnsqHhKwrmtgedDt-puZKXqYL_mgwMk2X_AhGZVtrq9k9KXU9cERKySACHfC2vmMuA-TUbDsnyFTZUJZUv_pN24PYqnUAjonkuUA);
+            background-blend-mode: soft-light;
+        }
+        .page {
+            display: none;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+        .page.active {
+            display: flex;
+            flex-direction: column;
+        }
+        .progress-fill {
+            transition: width 0.1s linear;
+        }
+
+        /* 相机主体固定比例 */
+        .camera-body {
+            width: 320px;
+            height: 420px;
+            max-width: 90vw;
+            max-height: 70vh;
+            aspect-ratio: 320 / 420;
+        }
+
+        /* 镜头固定比例 */
+        .lens-ring {
+            width: 200px;
+            height: 200px;
+            max-width: 55vw;
+            max-height: 55vw;
+            aspect-ratio: 1 / 1;
+        }
+
+        /* 相纸固定比例 - 72:86（72mm宽，86mm高，成像62×62mm正方形）*/
+        .polaroid {
+            width: 260px;
+            max-width: 70vw;
+            aspect-ratio: 72 / 86;
+            border-radius: 6px;
+            position: relative;
+            /* 使用box-shadow创建内边距空间，确保比例一致 */
+            box-sizing: border-box;
+        }
+
+        .polaroid-image-area {
+            /* 去掉hover时的任何边框效果 */
+            outline: none !important;
+            border: none !important;
+            /* 使用绝对定位确保正方形且不超出相纸 */
+            position: absolute;
+            /* 精确边距：
+               相纸: 72mm宽 × 86mm高
+               成像: 62mm × 62mm正方形
+               上边距: 5mm = 5/86 = 5.81%
+            */
+            top: 5.81%;
+            height: 72.09%;  /* 62mm / 86mm */
+            /* 水平居中，左右自动形成相等边距 */
+            left: 50%;
+            transform: translateX(-50%);
+            /* 设置宽度等于高度，形成正方形 */
+            width: calc(72.09% * 86 / 72);  /* 根据高度计算对应宽度 */
+            overflow: hidden;
+            border-radius: 0;
+            box-sizing: border-box;
+        }
+
+        /* 确保照片等比例缩放，不拉伸变形 - 使用!important强制生效 */
+        .polaroid-image-area img {
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: cover !important;  /* 等比例填充，裁剪多余部分 */
+            object-position: center !important;
+        }
+
+        /* 额外的规则，确保覆盖所有可能的类 */
+        .polaroid-image-area img[class*="object"] {
+            object-fit: cover !important;
+        }
+
+        .polaroid-image-area:hover {
+            outline: none !important;
+            border: none !important;
+        }
+
+        /* 相机上移动画 - 移动到只显示1/4 */
+        .camera-moving-up {
+            transform: translateY(-60%) !important;
+        }
+
+        /* 相纸吐出动画 - 从相机底部吐出到下方20px */
+        .photo-ejecting {
+            animation: photoEject 5s linear forwards;
+        }
+
+        @keyframes photoEject {
+            0% {
+                transform: translate(-50%, -80px);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            100% {
+                transform: translate(-50%, 40px);
+                opacity: 1;
+            }
+        }
+
+        /* 快门按钮涟漪动画 */
+        .shutter-ready {
+            animation: shutterPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes shutterPulse {
+            0%, 100% {
+                box-shadow: 0 0 0 0 rgba(190, 0, 76, 0.8);
+            }
+            50% {
+                box-shadow: 0 0 0 25px rgba(190, 0, 76, 0);
+            }
+        }
+
+        /* 待命进度条变红 */
+        .ready-active {
+            background-color: rgba(190, 0, 76, 0.3) !important;
+        }
+        .ready-active div {
+            background: linear-gradient(to right, #be004c, #ff6b6b) !important;
+        }
+
+        /* LED 状态灯 */
+        .camera-led {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #ef4444;
+            box-shadow: 0 0 8px #ef4444;
+            transition: all 0.3s ease;
+        }
+
+        .camera-led.active {
+            background: #ef4444;
+            box-shadow: 0 0 10px #ef4444, 0 0 20px #ef4444;
+            animation: led-pulse 1.5s ease-in-out infinite;
+        }
+
+        .camera-led.success {
+            background: #22c55e;
+            box-shadow: 0 0 10px #22c55e, 0 0 20px #22c55e;
+        }
+
+        .camera-led.error {
+            background: #eab308;
+            animation: led-flash 0.2s ease-in-out 3;
+        }
+
+        @keyframes led-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        @keyframes led-flash {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* 文字白光扫过动画 - 字体颜色动态变化 */
+        .text-shimmer {
+            background: linear-gradient(
+                90deg,
+                rgba(255, 255, 255, 0.6) 0%,
+                rgba(255, 255, 255, 0.6) 40%,
+                rgba(255, 255, 255, 1) 50%,
+                rgba(255, 255, 255, 0.6) 60%,
+                rgba(255, 255, 255, 0.6) 100%
+            );
+            background-size: 200% 100%;
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            animation: text-shimmer 1.5s ease-in-out infinite;
+        }
+
+        @keyframes text-shimmer {
+            0% { background-position: 100% 0; }
+            100% { background-position: -100% 0; }
+        }
+
+        /* 生成完毕文字脉冲动效 */
+        .text-pulse-success {
+            animation: text-pulse 0.6s ease-in-out;
+        }
+
+        @keyframes text-pulse {
+            0%, 100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.1);
+                opacity: 0.9;
+            }
+        }
+
+        /* 进度条状态颜色 */
+        .progress-processing {
+            background: linear-gradient(to right, #be004c, #ff6b6b) !important;
+        }
+
+        .progress-success {
+            background: linear-gradient(to right, #22c55e, #4ade80) !important;
+        }
+
+        .progress-error {
+            background: linear-gradient(to right, #eab308, #facc15) !important;
+        }
+
+        /* 进度条冲刺动画 */
+        .progress-sprint {
+            transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        }
+
+        /* 拍立得滤镜效果 - 真实Instax胶片感 */
+        .instax-filter {
+            filter:
+                brightness(1.12)
+                contrast(0.95)
+                saturate(0.85)
+                sepia(0.08)
+                blur(0.15px);
+        }
+
+        /* Fujifilm FRGMT BW 黑白滤镜 - 藤原浩联名（细腻版） */
+        .fragmt-bw-filter {
+            filter:
+                grayscale(100%)
+                contrast(115%)
+                brightness(102%)
+                saturate(0%);
+        }
+
+        /* FRGMT BW 暗部处理 - 细腻层次感 */
+        .fragmt-bw-filter::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(
+                ellipse at center,
+                transparent 50%,
+                rgba(0, 0, 0, 0.08) 80%,
+                rgba(0, 0, 0, 0.15) 100%
+            );
+            pointer-events: none;
+            z-index: 10;
+            mix-blend-mode: multiply;
+        }
+
+        /* FRGMT BW 细腻颗粒噪点 - 静谧质感 */
+        .fragmt-bw-filter::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            opacity: 0.18;
+            pointer-events: none;
+            /* 细腻的胶片颗粒噪点 */
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='fine-grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23fine-grain)'/%3E%3C/svg%3E");
+            mix-blend-mode: overlay;
+            z-index: 11;
+        }
+
+        /* FRGMT BW 柔和锐度 - 保持层次感 */
+        .fragmt-bw-sharp {
+            filter: contrast(118%) brightness(100%) grayscale(100%) saturate(0%);
+        }
+
+        /* 滤镜选择器样式 */
+        .filter-selector {
+            display: flex;
+            gap: 8px;
+            padding: 12px;
+            background: rgba(37, 38, 38, 0.95);
+            border-radius: 20px;
+            margin: 8px 0;
+        }
+
+        .filter-option {
+            flex: 1;
+            padding: 8px 12px;
+            border-radius: 12px;
+            border: 2px solid transparent;
+            background: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 12px;
+            font-weight: 600;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        .filter-option:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .filter-option.active {
+            border-color: #be004c;
+            background: rgba(190, 0, 76, 0.2);
+            color: #ffffff;
+        }
+
+        .filter-option:active {
+            transform: scale(0.95);
+        }
+
+        /* 色彩叠加层 - 拍立得分离色调：高光橙红 + 阴影青绿 */
+        .instax-filter::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background:
+                radial-gradient(ellipse at 30% 25%, rgba(255, 235, 220, 0.12) 0%, transparent 45%),
+                radial-gradient(ellipse at 70% 75%, rgba(190, 220, 210, 0.15) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 10;
+            mix-blend-mode: soft-light;
+        }
+
+        /* 颗粒感 - 真实胶片颗粒 */
+        .instax-filter::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            opacity: 0.10;
+            pointer-events: none;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+            z-index: 11;
+        }
+
+        /* 暗角效果 - 增加胶片感 */
+        .vignette-light {
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle, transparent 50%, rgba(0,0,0,0.25) 100%);
+            pointer-events: none;
+            z-index: 12;
+        }
+
+        /* 漏光效果 - 右上角橙色漏光 */
+        .light-leak {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 45%;
+            height: 45%;
+            background: radial-gradient(ellipse at top right, rgba(255, 200, 150, 0.08) 0%, transparent 65%);
+            pointer-events: none;
+            z-index: 13;
+            mix-blend-mode: screen;
+        }
+
+        /* 不均匀显影效果 */
+        .instax-developing-pattern {
+            position: absolute;
+            inset: 0;
+            opacity: 0.9;
+            pointer-events: none;
+            background-color: white;
+            background-image:
+                repeating-linear-gradient(
+                    45deg,
+                    transparent,
+                    transparent 10px,
+                    rgba(0,0,0,0.03) 10px,
+                    rgba(0,0,0,0.03) 11px
+                );
+            z-index: 14;
+            transition: opacity 0.1s linear;
+        }
+
+        /* 点击加速提示 */
+        .shake-hint {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: rgba(0, 0, 0, 0.5);
+            font-size: 14px;
+            font-weight: 500;
+            text-align: center;
+            pointer-events: none;
+            animation: pulse 2s ease-in-out infinite;
+            z-index: 15;
+            white-space: nowrap;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 0.8; }
+        }
+
+        /* 显影动画 - 从白色渐变到最终颜色，与进度条同步6秒 */
+        .developing {
+            animation: developing 6s linear forwards;
+        }
+
+        @keyframes developing {
+            0% {
+                filter: brightness(2.5) contrast(0.4) grayscale(1) blur(0.8px);
+            }
+            100% {
+                filter: brightness(1.12) contrast(0.95) saturate(0.85) sepia(0.08) blur(0.15px);
+            }
+        }
+
+        /* 进度条颜色 - 从浅红到深红 */
+        #develop-progress {
+            --progress-ratio: 0;
+            background: rgb(
+                calc(255 - (var(--progress-ratio) * 65)),
+                calc(178 - (var(--progress-ratio) * 178)),
+                calc(190 - (var(--progress-ratio) * 114))
+            );
+            opacity: 1;
+            transition: background 0.1s linear;
+        }
+
+        /* 显影面板滑入 */
+        .develop-panel-show {
+            transform: translateY(0) !important;
+            opacity: 1 !important;
+            pointer-events: auto !important;
+        }
+
+        /* 显影面板滑出 - 优先级更高 */
+        #develop-panel.develop-panel-hide {
+            transform: translateY(100%) !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+        }
+
+        /* 页面触摸反馈 */
+        #page-camera {
+            touch-action: pan-y;
+        }
+
+        /* 导航栏隐藏 */
+        .nav-hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .instax-frame {
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.06);
+            background-image: linear-gradient(135deg, #ffffff 0%, #f2f4f2 100%);
+            position: relative;
+        }
+        .instax-frame::after {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+            opacity: 0.03;
+            pointer-events: none;
+            border-radius: inherit;
+        }
+    </style>
+</head>
+<body class="bg-[#f7f7f7] text-[#2d3432] font-space-grotesk selection:bg-primary selection:text-on-primary overflow-hidden">
+
+    <!-- PAGE 1: 相机主页 + 显影 -->
+    <div id="page-camera" class="page active">
+        <main class="relative w-full h-full flex flex-col bg-[#f7f7f7] linen-texture overflow-hidden">
+            <!-- 相机容器（初始在顶部） -->
+            <div id="camera-container" class="relative flex flex-col items-center pt-8 transition-transform duration-[2000ms] ease-in-out z-20">
+                <!-- 相机主体 -->
+                <div class="camera-body relative bg-[#252626] rounded-[48px] tactile-shadow p-8 flex flex-col items-center border-t border-white/5 overflow-hidden">
+                    <!-- 取景器区域 -->
+                    <div class="w-full flex justify-between items-start mb-4">
+                        <div class="w-12 h-8 bg-black rounded-md inner-bevel flex items-center justify-center overflow-hidden">
+                            <div class="w-4 h-4 rounded-full bg-neutral-800/50 border border-white/10 blur-[1px]"></div>
+                        </div>
+                        <div class="flex flex-col items-end gap-1">
+                            <div class="flex items-center gap-2">
+                                <div id="camera-led" class="camera-led"></div>
+                                <div id="ready-indicator" class="w-16 h-4 bg-black rounded-full inner-bevel relative overflow-hidden">
+                                    <div id="progress-bar" class="absolute inset-y-0 left-0 bg-neutral-700 transition-all duration-300" style="width: 75%"></div>
+                                </div>
+                            </div>
+                            <span id="ready-text" class="font-label text-[8px] uppercase tracking-widest" style="color: rgba(255, 255, 255, 0.6);" data-text="就绪">就绪</span>
+                        </div>
+                    </div>
+
+                    <!-- 镜头区域 -->
+                    <div class="lens-ring relative rounded-full bg-black flex items-center justify-center p-4 inner-bevel">
+                        <div class="absolute inset-0 rounded-full border-[12px] border-neutral-800/50 shadow-2xl"></div>
+                        <div class="relative w-full h-full rounded-full bg-[#050505] overflow-hidden flex items-center justify-center shadow-[inset_0_0_40px_rgba(0,0,0,1)]">
+                            <div class="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent"></div>
+
+                            <!-- 摄像头画面 -->
+                            <video id="camera-stream" class="absolute inset-0 w-full h-full object-cover" autoplay playsinline muted></video>
+
+                            <!-- 未开启摄像头时的提示 -->
+                            <div id="camera-placeholder" class="w-32 h-32 rounded-full border-2 border-white/5 flex items-center justify-center">
+                                <div class="w-20 h-20 rounded-full bg-neutral-900 flex items-center justify-center">
+                                    <span class="material-symbols-outlined text-white/20 text-4xl">videocam</span>
+                                </div>
+                            </div>
+
+                            <!-- 镜头光晕 -->
+                            <div class="absolute top-8 left-8 w-12 h-12 rounded-full bg-white/5 blur-xl pointer-events-none"></div>
+                        </div>
+                    </div>
+
+                    <!-- 镜头文字环 -->
+                    <div class="flex flex-col items-center mt-3">
+                        <span class="font-label text-[10px] uppercase tracking-[0.3em] text-neutral-500/80">RETROMATIC</span>
+                    </div>
+
+                    <!-- 底部控制按钮 -->
+                    <div class="w-full grid grid-cols-3 gap-4 items-center mt-4 pb-8">
+                        <div class="flex flex-col items-center gap-1">
+                            <button id="flip-camera-btn" class="w-8 h-8 rounded-full bg-neutral-800 inner-bevel flex items-center justify-center cursor-pointer active:scale-95 transition-transform disabled:opacity-50 disabled:cursor-not-allowed">
+                                <span class="material-symbols-outlined text-xs text-neutral-400">flip_camera_android</span>
+                            </button>
+                        </div>
+                        <!-- 快门按钮 -->
+                        <div class="flex justify-center">
+                            <button id="shutter-btn" class="shutter-button w-16 h-16 rounded-full bg-gradient-to-b from-neutral-700 to-neutral-900 border-t border-white/10 shadow-lg active:translate-y-0.5 active:shadow-sm transition-all flex items-center justify-center group disabled:opacity-50 disabled:cursor-not-allowed">
+                                <div class="w-12 h-12 rounded-full border-2 border-[#be004c]/20 flex items-center justify-center">
+                                    <div class="w-8 h-8 rounded-full bg-[#be004c] shadow-[0_0_15px_rgba(190,0,76,0.4)] group-active:scale-90 transition-transform"></div>
+                                </div>
+                            </button>
+                        </div>
+                        <div class="flex flex-col items-center gap-1">
+                            <button id="settings-btn" class="w-8 h-8 rounded-full bg-neutral-800 inner-bevel flex items-center justify-center cursor-pointer active:scale-95 transition-transform">
+                                <span class="material-symbols-outlined text-xs text-neutral-400">settings</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 胶卷出口 -->
+                    <div id="film-slot" class="absolute bottom-0 w-3/4 h-1.5 bg-black/80 rounded-full overflow-hidden shadow-[inset_0_2px_4px_rgba(0,0,0,0.8)] border-t border-white/5 z-10">
+                        <div class="absolute inset-0 bg-gradient-to-b from-black/40 to-transparent"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 吐出的相纸 -->
+            <div id="ejected-photo" class="absolute left-1/2 opacity-0 z-10 cursor-pointer" style="top: 200px;" onclick="app.handlePhotoClick()">
+                <div class="polaroid bg-white polaroid-shadow transition-transform hover:scale-[1.02] active:scale-[0.98]">
+                    <div id="ejected-photo-area" class="polaroid-image-area bg-[#1a1a1a] overflow-hidden relative fragmt-bw-filter fragmt-bw-sharp">
+                        <div class="vignette-light"></div>
+                        <div class="instax-developing-pattern"></div>
+                        <div id="shake-hint-text" class="shake-hint" style="display: none;">
+                            📱 点击/摇晃加速
+                        </div>
+                        <img id="ejected-image" alt="Instax photo" class="w-full h-full opacity-90" style="filter: brightness(2.8) contrast(0.4) grayscale(1) blur(1.0px);"/>
+                        <div class="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent pointer-events-none"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 底部显影控制面板（初始隐藏） -->
+            <div id="develop-panel" class="fixed bottom-0 left-0 w-full z-30 pt-10 pb-12 rounded-t-[40px] shadow-[0_-15px_40px_rgba(0,0,0,0.04)] bg-white transition-transform duration-500 translate-y-full">
+                <div class="flex flex-col items-center w-full max-w-md mx-auto px-10">
+                    <h2 id="develop-status" class="text-xl font-bold mb-8 text-[#2d3432] font-space-grotesk uppercase tracking-tight">摇晃手机加速显影</h2>
+                    <div class="w-full bg-[#f0edec] h-3.5 rounded-full overflow-hidden relative">
+                        <div id="develop-progress" class="progress-fill absolute top-0 left-0 h-full bg-[#be004c] rounded-full w-0 flex items-center justify-end pr-0.5 shadow-[0_0_10px_rgba(190,0,76,0.3)]">
+                            <div class="w-2.5 h-2.5 bg-white rounded-full shadow-sm"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 摄像头权限提示弹窗 -->
+            <div id="camera-permission-modal" class="fixed inset-0 z-[60] bg-black/70 flex items-center justify-center p-4">
+                <div class="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl">
+                    <span class="material-symbols-outlined text-6xl text-[#be004c] mb-4">videocam</span>
+                    <h2 class="text-2xl font-bold text-[#2d3432] mb-3 font-space-grotesk">开启摄像头</h2>
+                    <p class="text-gray-600 mb-6 font-label">需要访问您的摄像头以拍摄拍立得照片</p>
+                    <button id="start-camera-btn" class="w-full bg-[#be004c] text-white py-4 rounded-full font-bold font-space-grotesk hover:bg-[#a00040] transition-colors active:scale-[0.98]">
+                        允许访问摄像头
+                    </button>
+                </div>
+            </div>
+
+            <!-- 底部导航栏 -->
+            <nav class="fixed bottom-0 left-0 w-full z-40 flex justify-center items-center h-24 rounded-t-3xl border-t border-[#adb3b0]/10 shadow-[0px_-10px_30px_rgba(45,52,50,0.05)] bg-white transition-opacity duration-300" id="camera-nav">
+                <div class="flex justify-around items-center w-full max-w-md px-8">
+                    <button id="nav-home" class="flex flex-col items-center justify-center text-[#be004c] transition-colors active:scale-95 duration-150">
+                        <span class="material-symbols-outlined filled text-3xl">home</span>
+                        <span class="font-space-grotesk text-[12px] tracking-tighter font-bold uppercase">首页</span>
+                    </button>
+                    <button id="nav-gallery" class="flex flex-col items-center justify-center text-[#adb3b0] hover:text-[#2d3432] transition-colors active:scale-95 duration-150">
+                        <span class="material-symbols-outlined text-3xl">photo_library</span>
+                        <span class="font-space-grotesk text-[12px] tracking-tighter font-bold uppercase">相册</span>
+                    </button>
+                </div>
+            </nav>
+        </main>
+    </div>
+
+    <!-- PAGE 2: 照片预览页 -->
+    <div id="page-preview" class="page">
+        <div class="flex-1 flex items-center justify-center p-4 overflow-auto bg-black">
+            <div id="preview-photo" class="polaroid bg-white polaroid-shadow">
+                <div class="polaroid-image-area bg-[#1a1a1a] overflow-hidden relative cursor-pointer fragmt-bw-filter fragmt-bw-sharp" onclick="app.openFullscreen()">
+                    <div class="vignette-light"></div>
+                    <img id="preview-image-full" alt="Instax photo" class="w-full h-full" style="filter: grayscale(100%) contrast(118%) brightness(100%) saturate(0%);"/>
+                    <div class="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent pointer-events-none"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 底部操作栏 -->
+        <nav class="fixed bottom-0 left-0 right-0 z-50 bg-black/80 backdrop-blur-xl h-24 flex items-center justify-between px-8 border-t border-[#ffffff]/5">
+            <div class="flex items-center gap-8">
+                <button onclick="app.deleteCurrentPhoto()" class="flex flex-col items-center gap-1 group active:scale-90 duration-150 transition-all">
+                    <span class="material-symbols-outlined text-white text-2xl group-hover:text-[#f1cad5] transition-colors">delete</span>
+                    <span class="font-space-grotesk text-[10px] text-white tracking-wider">删除</span>
+                </button>
+                <button onclick="app.downloadCurrentPhoto()" class="flex flex-col items-center gap-1 group active:scale-90 duration-150 transition-all">
+                    <span class="material-symbols-outlined text-white text-2xl group-hover:text-[#f1cad5] transition-colors">download</span>
+                    <span class="font-space-grotesk text-[10px] text-white tracking-wider">下载</span>
+                </button>
+            </div>
+            <button onclick="app.closePreview()" class="flex flex-col items-center gap-1 group active:scale-90 duration-150 transition-all">
+                <span class="material-symbols-outlined text-white text-2xl group-hover:text-[#f1cad5] transition-colors">close</span>
+                <span class="font-space-grotesk text-[10px] text-white tracking-wider">关闭</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- PAGE 4: 画廊页 -->
+    <div id="page-gallery" class="page">
+        <main class="flex-1 overflow-y-auto pb-36 pt-5 bg-[#f7f7f7] linen-texture">
+            <div id="gallery-photos" class="space-y-5 flex flex-col items-center px-5" style="min-height: 100vh; padding-left: min(20px, 1.5rem); padding-right: min(20px, 1.5rem);">
+                <!-- 空状态 -->
+                <div id="empty-gallery" class="text-center py-20 w-full">
+                    <span class="material-symbols-outlined text-6xl text-gray-300">photo_library</span>
+                    <p class="mt-4 text-gray-400 font-space-grotesk">还没有照片</p>
+                    <p class="text-sm text-gray-300">拍摄你的第一张拍立得吧！</p>
+                </div>
+            </div>
+        </main>
+
+        <!-- 底部导航栏 -->
+        <nav class="fixed bottom-0 left-0 w-full z-50 flex justify-center items-center h-24 rounded-t-3xl border-t border-[#adb3b0]/10 shadow-[0px_-10px_30px_rgba(45,52,50,0.05)] bg-white">
+            <div class="flex justify-around items-center w-full max-w-md px-8">
+                <button onclick="app.showPage('camera')" class="flex flex-col items-center justify-center text-[#adb3b0] hover:text-[#2d3432] transition-colors active:scale-95 duration-150">
+                    <span class="material-symbols-outlined text-3xl">home</span>
+                    <span class="font-space-grotesk text-[12px] tracking-tighter font-bold uppercase">首页</span>
+                </button>
+                <button class="flex flex-col items-center justify-center text-[#be004c] transition-colors active:scale-95 duration-150">
+                    <span class="material-symbols-outlined filled text-3xl">photo_library</span>
+                    <span class="font-space-grotesk text-[12px] tracking-tighter font-bold uppercase">相册</span>
+                </button>
+            </div>
+        </nav>
+    </div>
+
+    <!-- 全屏预览模态框 -->
+    <div id="fullscreen-modal" class="fixed inset-0 bg-black z-[100] hidden items-center justify-center">
+        <button onclick="app.closeFullscreen()" class="absolute top-4 right-4 text-white z-10">
+            <span class="material-symbols-outlined text-3xl">close</span>
+        </button>
+        <img id="fullscreen-image" class="max-w-full max-h-full object-contain" alt="全屏预览" style="filter: brightness(1.12) contrast(0.95) saturate(0.85) sepia(0.08) blur(0.15px);"/>
+    </div>
+
+    <script>
+        const app = {
+            photos: [],
+            currentPhotoIndex: -1,
+            capturedImageData: null,
+            cameraStream: null,
+            currentFacingMode: 'user', // 当前摄像头模式：'user'（前置）或 'environment'（后置）
+            currentFilter: 'fragmt-bw', // 默认使用FRGMT BW黑白滤镜
+
+            // 状态机变量
+            progressTimer: null,
+            progressPhase: 0,
+            currentProgress: 0,
+            processingStartTime: 0,
+
+            init() {
+                try {
+                    this.loadPhotos();
+                    this.bindEvents();
+                    this.updateGallery();
+
+                    // 初始状态禁用快门按钮和翻转按钮
+                    const shutterBtn = document.getElementById('shutter-btn');
+                    if (shutterBtn) {
+                        shutterBtn.disabled = true;
+                    }
+
+                    const flipBtn = document.getElementById('flip-camera-btn');
+                    if (flipBtn) {
+                        flipBtn.disabled = true;
+                    }
+
+                    // 显示摄像头权限提示
+                    setTimeout(() => {
+                        this.showCameraPermissionModal();
+                    }, 500);
+                } catch (error) {
+                    console.error('初始化错误:', error);
+                }
+            },
+
+            showCameraPermissionModal() {
+                const modal = document.getElementById('camera-permission-modal');
+                if (modal) {
+                    modal.classList.remove('hidden');
+                    modal.classList.add('flex');
+                }
+            },
+
+            hideCameraPermissionModal() {
+                const modal = document.getElementById('camera-permission-modal');
+                if (modal) {
+                    modal.classList.add('hidden');
+                    modal.classList.remove('flex');
+                }
+            },
+
+            async startCamera() {
+                try {
+                    // 请求摄像头权限 - 默认使用前置摄像头
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            facingMode: 'user', // 前置摄像头
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 }
+                        }
+                    });
+
+                    this.cameraStream = stream;
+
+                    // 显示摄像头画面
+                    const video = document.getElementById('camera-stream');
+                    video.srcObject = stream;
+
+                    // 隐藏占位符
+                    document.getElementById('camera-placeholder').style.display = 'none';
+
+                    // 隐藏权限提示
+                    this.hideCameraPermissionModal();
+
+                    // 启用快门按钮和翻转按钮
+                    const shutterBtn = document.getElementById('shutter-btn');
+                    shutterBtn.disabled = false;
+                    shutterBtn.classList.add('shutter-ready');
+
+                    const flipBtn = document.getElementById('flip-camera-btn');
+                    flipBtn.disabled = false;
+
+                    // LED 保持红色（就绪状态），进度条灰色
+                    const led = document.getElementById('camera-led');
+                    // 移除所有状态类，保持默认红色
+                    led.classList.remove('success', 'active', 'error');
+
+                    // 确保进度条是灰色的
+                    const progressBar = document.getElementById('progress-bar');
+                    progressBar.classList.remove('progress-processing', 'progress-success', 'progress-error');
+                    progressBar.style.width = '75%';
+
+                    document.getElementById('ready-text').textContent = '就绪';
+                    document.getElementById('ready-text').setAttribute('data-text', '就绪');
+                    document.getElementById('ready-text').style.color = 'rgba(255, 255, 255, 0.6)';
+
+                } catch (error) {
+                    console.error('摄像头启动失败:', error);
+                    alert('无法访问摄像头，请确保已授权摄像头权限。\n错误信息: ' + error.message);
+                }
+ },
+
+
+            async flipCamera() {
+                try {
+                    // 停止当前摄像头
+                    if (this.cameraStream) {
+                        this.cameraStream.getTracks().forEach(track => track.stop());
+                    }
+
+                    // 切换摄像头模式
+                    this.currentFacingMode = this.currentFacingMode === 'user' ? 'environment' : 'user';
+
+                    // 请求新的摄像头
+                    const stream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            facingMode: this.currentFacingMode,
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 }
+                        }
+                    });
+
+                    this.cameraStream = stream;
+
+                    // 显示摄像头画面
+                    const video = document.getElementById('camera-stream');
+                    video.srcObject = stream;
+
+                    console.log('摄像头已切换到:', this.currentFacingMode === 'user' ? '前置' : '后置');
+
+                } catch (error) {
+                    console.error('摄像头切换失败:', error);
+                    alert('无法切换摄像头，错误信息: ' + error.message);
+                }
+            },
+
+            bindEvents() {
+                // 开启摄像头按钮
+                document.getElementById('start-camera-btn').addEventListener('click', () => this.startCamera());
+
+                // 翻转摄像头按钮
+                document.getElementById('flip-camera-btn').addEventListener('click', () => this.flipCamera());
+
+                // 快门按钮
+                document.getElementById('shutter-btn').addEventListener('click', () => this.takePhoto());
+
+                // 导航
+                document.getElementById('nav-home').addEventListener('click', () => this.showPage('camera'));
+                document.getElementById('nav-gallery').addEventListener('click', () => this.showPage('gallery'));
+
+                // 摇晃检测
+                if (window.DeviceMotionEvent) {
+                    let lastShake = 0;
+                    window.addEventListener('devicemotion', (e) => {
+                        const current = Date.now();
+                        if (current - lastShake < 300) return;
+
+                        const accel = e.accelerationIncludingGravity;
+                        if (!accel) return;
+
+                        const total = Math.abs(accel.x || 0) + Math.abs(accel.y || 0) + Math.abs(accel.z || 0);
+                        if (total > 20) {
+                            lastShake = current;
+                            // 只在显影过程中响应摇晃
+                            if (this.developInterval) {
+                                this.developFaster();
+                            }
+                        }
+                    });
+                }
+
+                // 点击屏幕模拟摇晃
+                document.getElementById('page-camera').addEventListener('click', (e) => {
+                    // 只在显影面板显示时响应
+                    if (document.getElementById('develop-panel').classList.contains('develop-panel-show')) {
+                        if (e.target.tagName !== 'BUTTON' && !e.target.closest('button')) {
+                            this.developFaster();
+                        }
+                    }
+                });
+            },
+
+            takePhoto() {
+                if (!this.cameraStream) {
+                    alert('请先开启摄像头！');
+                    return;
+                }
+
+                // 隐藏底部导航栏（强制隐藏）
+                const cameraNav = document.getElementById('camera-nav');
+                if (cameraNav) {
+                    cameraNav.classList.add('nav-hidden');
+                    cameraNav.style.opacity = '0';
+                }
+
+                // 捕获摄像头画面并裁剪为正方形
+                const video = document.getElementById('camera-stream');
+                const canvas = document.createElement('canvas');
+
+                // 计算正方形尺寸（取较短边）
+                const size = Math.min(video.videoWidth, video.videoHeight);
+                canvas.width = size;
+                canvas.height = size;
+
+                const ctx = canvas.getContext('2d');
+
+                // 计算裁剪起始位置（居中裁剪）
+                const startX = (video.videoWidth - size) / 2;
+                const startY = (video.videoHeight - size) / 2;
+
+                // 裁剪并绘制视频中心部分为正方形
+                ctx.drawImage(video, startX, startY, size, size, 0, 0, size, size);
+
+                // 手动应用黑白滤镜（兼容性更好）
+                const imageData = ctx.getImageData(0, 0, size, size);
+                const data = imageData.data;
+
+                for (let i = 0; i < data.length; i += 4) {
+                    // 转换为灰度值（加权平均，人眼感知）
+                    const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+
+                    // 应用对比度（118%）
+                    const contrast = 1.18;
+                    const adjusted = ((gray / 255 - 0.5) * contrast + 0.5) * 255;
+
+                    // 限制在 0-255 范围内
+                    const clamped = Math.max(0, Math.min(255, adjusted));
+
+                    data[i] = clamped;     // R
+                    data[i + 1] = clamped; // G
+                    data[i + 2] = clamped; // B
+                    // Alpha 通道不变
+                }
+
+                ctx.putImageData(imageData, 0, 0);
+
+                // 转换为 base64
+                this.capturedImageData = canvas.toDataURL('image/jpeg', 0.95);
+
+                // 重置状态
+                document.getElementById('shutter-btn').classList.remove('shutter-ready');
+                document.getElementById('ready-indicator').classList.remove('ready-active');
+
+                // 初始化状态机：进入处理中状态
+                this.enterProcessingState();
+
+                // 模拟处理后开始显影
+                setTimeout(() => {
+                    this.handleAISuccess(this.capturedImageData);
+                }, 2000);
+            },
+
+            enterProcessingState() {
+                this.processingStartTime = Date.now();
+                this.currentProgress = 0;
+                this.progressPhase = 1;
+
+                // 1. LED 红色呼吸灯
+                const led = document.getElementById('camera-led');
+                led.classList.remove('success', 'error');
+                led.classList.add('active');
+
+                // 2. 进度条变红（现在才变红）
+                const progressBar = document.getElementById('progress-bar');
+                progressBar.classList.add('progress-processing');
+                progressBar.classList.remove('progress-success', 'progress-error');
+                progressBar.style.width = '0%';
+
+                // 3. 文本改为"出片中"，白光扫过效果
+                const readyText = document.getElementById('ready-text');
+                readyText.textContent = '出片中...';
+                readyText.setAttribute('data-text', '出片中...');
+                readyText.style.color = ''; // 清除 inline style，让 text-shimmer 生效
+                readyText.classList.add('text-shimmer');
+
+                // 4. 禁用快门按钮并移除闪烁
+                document.getElementById('shutter-btn').disabled = true;
+                document.getElementById('shutter-btn').classList.remove('shutter-ready');
+                document.getElementById('ready-indicator').classList.remove('ready-active');
+
+                // 5. 启动伪进度动画
+                this.startFakeProgress();
+            },
+
+            startFakeProgress() {
+                // 清除之前的定时器
+                if (this.progressTimer) {
+                    clearInterval(this.progressTimer);
+                }
+
+                // 启动进度更新循环
+                this.progressTimer = setInterval(() => {
+                    const elapsedTime = Date.now() - this.processingStartTime;
+
+                    // Phase 1: 0-3秒，快速增长到30%
+                    if (elapsedTime < 3000) {
+                        const phaseProgress = (elapsedTime / 3000) * 30;
+                        this.currentProgress = phaseProgress;
+                    }
+                    // Phase 2: 3-12秒，缓慢爬升到75%
+                    else if (elapsedTime < 12000) {
+                        const phaseProgress = 30 + ((elapsedTime - 3000) / 9000) * 45;
+                        this.currentProgress = Math.min(phaseProgress, 75);
+                    }
+                    // Phase 3: 12秒后，极慢速度逼近95%
+                    else {
+                        const slowIncrement = 0.5; // 每次增加0.5%
+                        this.currentProgress = Math.min(this.currentProgress + slowIncrement, 95);
+                    }
+
+                    // 更新进度条
+                    this.updateProgressBar(this.currentProgress);
+
+                }, 100); // 每100ms更新一次
+            },
+
+            updateProgressBar(value) {
+                const progressBar = document.getElementById('progress-bar');
+                progressBar.style.width = value + '%';
+            },
+
+            async callAIAPI() {
+                try {
+                    console.log('📤 发起 API 请求到 /api/generate');
+                    console.log('🖼️ 图片数据长度:', this.uploadedImageData?.length || 0);
+
+                    const response = await fetch('/api/generate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            image: this.uploadedImageData
+                        })
+                    });
+
+                    console.log('📥 收到响应，状态码:', response.status);
+
+                    const result = await response.json();
+                    console.log('📊 响应内容:', result);
+
+                    if (result.success && result.imageUrl) {
+                        this.handleAISuccess(result.imageUrl);
+                    } else {
+                        throw new Error(result.error || 'AI 生成失败');
+                    }
+                } catch (error) {
+                    console.error('❌ API 调用出错:', error);
+                    this.handleAIError(error);
+                }
+            },
+
+            handleAISuccess(imageData) {
+                // 清除伪进度定时器
+                if (this.progressTimer) {
+                    clearInterval(this.progressTimer);
+                    this.progressTimer = null;
+                }
+
+                // 执行冲刺动画：0.5s内补满到100%
+                const progressBar = document.getElementById('progress-bar');
+                progressBar.classList.add('progress-sprint');
+                progressBar.style.width = '100%';
+
+                // 0.5s后进入完成状态
+                setTimeout(() => {
+                    this.enterCompletedState(imageData);
+                }, 500);
+            },
+
+            enterCompletedState(imageData) {
+                // 1. LED 变为常亮绿
+                const led = document.getElementById('camera-led');
+                led.classList.remove('active');
+                led.classList.add('success');
+
+                // 2. 进度条变绿
+                const progressBar = document.getElementById('progress-bar');
+                progressBar.classList.remove('progress-processing', 'progress-sprint');
+                progressBar.classList.add('progress-success');
+
+                // 3. 文本改为"已出片"，绿色+脉冲动效
+                const readyText = document.getElementById('ready-text');
+                readyText.textContent = '已出片';
+                readyText.setAttribute('data-text', '已出片');
+                readyText.classList.remove('text-shimmer');
+                readyText.style.color = '#22c55e';
+                readyText.classList.add('text-pulse-success');
+
+                // 4. 确保导航栏隐藏
+                const cameraNav = document.getElementById('camera-nav');
+                if (cameraNav) {
+                    cameraNav.classList.add('nav-hidden');
+                    cameraNav.style.opacity = '0';
+                }
+
+                // 5. 2-3秒后开始显影流程（不重置状态）
+                setTimeout(() => {
+                    this.startDevelopingProcess();
+                }, 2500);
+            },
+
+            startDevelopingProcess() {
+                // 原有的显影流程逻辑
+                const cameraContainer = document.getElementById('camera-container');
+                const ejectedPhoto = document.getElementById('ejected-photo');
+
+                // 完全清理之前的状态，确保没有残留
+                cameraContainer.classList.remove('camera-moving-up');
+                ejectedPhoto.classList.remove('photo-ejecting');
+                ejectedPhoto.style.opacity = '0';
+                ejectedPhoto.style.transform = '';
+                ejectedPhoto.style.transition = '';
+
+                // 强制重绘，确保状态更新
+                void ejectedPhoto.offsetWidth;
+
+                // 重置显影相关变量
+                this.developProgress = 0;
+                this.isDevelopingFinished = false;
+                if (this.developInterval) {
+                    clearInterval(this.developInterval);
+                    this.developInterval = null;
+                }
+
+                // 设置吐出的相纸图片和滤镜区域
+                const ejectedImage = document.getElementById('ejected-image');
+                const ejectedPhotoArea = document.getElementById('ejected-photo-area');
+
+                // 更新相纸区域的滤镜类为FRGMT BW
+                ejectedPhotoArea.classList.remove('instax-filter', 'fragmt-bw-filter', 'fragmt-bw-sharp');
+                ejectedPhotoArea.classList.add('fragmt-bw-filter', 'fragmt-bw-sharp');
+
+                ejectedImage.src = this.capturedImageData;
+
+                // 设置FRGMT BW初始状态
+                ejectedImage.style.filter = 'brightness(2.8) contrast(0.4) grayscale(1) blur(1.0px)';
+
+                // 移除之前的显影动画类（如果存在）
+                ejectedImage.classList.remove('developing');
+
+                // 重置白色遮罩层为完全不透明（在吐出前设置）
+                const patterns = document.querySelectorAll('.instax-developing-pattern');
+                patterns.forEach(p => {
+                    p.style.opacity = '0.9';
+                    p.style.transition = 'none'; // 暂时禁用过渡
+                });
+
+                // 强制重绘
+                void ejectedImage.offsetWidth;
+
+                // 恢复过渡效果
+                setTimeout(() => {
+                    patterns.forEach(p => p.style.transition = 'opacity 0.1s linear');
+                }, 50);
+
+                // 1. 隐藏导航栏（强制隐藏）
+                const cameraNav = document.getElementById('camera-nav');
+                if (cameraNav) {
+                    cameraNav.classList.add('nav-hidden');
+                    cameraNav.style.opacity = '0';
+                }
+
+                // 2. 相机上移（2秒，缓动）同时相纸开始吐出（5秒，匀速）
+                cameraContainer.classList.add('camera-moving-up');
+
+                // 相机移动的同时，相纸立即开始吐出（同步）
+                document.getElementById('ejected-photo').classList.add('photo-ejecting');
+
+                // 3. 相纸吐出完成后（5秒），显影面板滑入
+                setTimeout(() => {
+                    const panel = document.getElementById('develop-panel');
+                    panel.classList.remove('develop-panel-hide');
+                    panel.classList.add('develop-panel-show');
+
+                    // 确保导航栏隐藏
+                    const cameraNav = document.getElementById('camera-nav');
+                    if (cameraNav && !cameraNav.classList.contains('nav-hidden')) {
+                        cameraNav.classList.add('nav-hidden');
+                    }
+                }, 5000);
+
+                // 4. 开始显影进度
+                setTimeout(() => {
+                    this.startDeveloping();
+                }, 5200);
+            },
+
+            developProgress: 0,
+            developInterval: null,
+            isDevelopingFinished: false,
+
+            startDeveloping() {
+                this.developProgress = 0;
+                this.isDevelopingFinished = false;
+
+                // 不使用 CSS 动画类，完全由 JavaScript 控制显影
+                const ejectedImage = document.getElementById('ejected-image');
+
+                // 确保白色遮罩层正确初始化（应该在 startDevelopingProcess 中已设置）
+                const patterns = document.querySelectorAll('.instax-developing-pattern');
+                console.log('开始显影，白色遮罩层数量:', patterns.length);
+                patterns.forEach(p => {
+                    console.log('白色遮罩层当前 opacity:', p.style.opacity);
+                    // 如果没有正确设置，重新设置
+                    if (!p.style.opacity || p.style.opacity === '0') {
+                        p.style.opacity = '0.9';
+                    }
+                });
+
+                // 启用摇晃检测（不显示提示文字）
+                this.enableShakeDetection();
+
+                this.developInterval = setInterval(() => {
+                    // 如果已经完成，停止更新
+                    if (this.isDevelopingFinished) return;
+
+                    this.developProgress += 1;
+
+                    // 更新进度条宽度
+                    document.getElementById('develop-progress').style.width = this.developProgress + '%';
+
+                    // 更新进度条颜色（从浅红到深红）
+                    document.getElementById('develop-progress').style.setProperty('--progress-ratio', this.developProgress / 100);
+
+                    // 动态更新白色遮罩层的透明度（从 0.9 渐变到 0）
+                    const newOpacity = 0.9 * (1 - this.developProgress / 100);
+                    patterns.forEach(p => p.style.opacity = newOpacity.toString());
+
+                    // 动态更新照片的滤镜（从白色渐变到最终效果）
+                    const progress = this.developProgress / 100;
+
+                    // FRGMT BW 黑白滤镜显影动画
+                    // 进度 0%: brightness(2.8) contrast(0.4) grayscale(1) blur(1.0px)
+                    // 进度 100%: grayscale(100%) contrast(118%) brightness(100%)
+                    const brightness = 2.8 - (2.8 - 1.0) * progress;
+                    const contrast = 0.4 + (1.18 - 0.4) * progress;
+                    const grayscale = 1; // 始终保持黑白
+                    const blur = 1.0 - (1.0 - 0.1) * progress; // 1.0 -> 0.1
+
+                    ejectedImage.style.filter = `brightness(${brightness}) contrast(${contrast}) grayscale(${grayscale}) blur(${blur}px) saturate(0)`;
+
+                    if (this.developProgress >= 100) {
+                        this.finishDeveloping();
+                    }
+                }, 60); // 6秒完成
+            },
+
+            handlePhotoClick() {
+                // 如果正在显影，加速显影
+                if (this.developInterval && !this.isDevelopingFinished) {
+                    this.developFaster();
+                    // 添加震动反馈（如果设备支持）
+                    if (navigator.vibrate) {
+                        navigator.vibrate(50);
+                    }
+                } else if (this.isDevelopingFinished) {
+                    // 显影完成后，显示预览
+                    this.showPreview(0);
+                }
+            },
+
+            enableShakeDetection() {
+                // 检查是否支持设备运动事件
+                if (window.DeviceMotionEvent) {
+                    let lastShakeTime = 0;
+                    const shakeThreshold = 15; // 摇晃阈值
+                    const shakeDelay = 300; // 摇晃间隔（毫秒）
+
+                    window.addEventListener('devicemotion', (event) => {
+                        const current = event.accelerationIncludingGravity;
+                        if (!current) return;
+
+                        const currentTime = new Date().getTime();
+                        if (currentTime - lastShakeTime < shakeDelay) return;
+
+                        const x = current.x || 0;
+                        const y = current.y || 0;
+                        const z = current.z || 0;
+
+                        // 检测摇晃强度
+                        const speed = Math.abs(x) + Math.abs(y) + Math.abs(z);
+
+                        if (speed > shakeThreshold) {
+                            lastShakeTime = currentTime;
+                            if (this.developInterval && !this.isDevelopingFinished) {
+                                this.developFaster();
+                                // 添加震动反馈
+                                if (navigator.vibrate) {
+                                    navigator.vibrate(50);
+                                }
+                            }
+                        }
+                    });
+                }
+            },
+
+            developFaster() {
+                if (this.developInterval && !this.isDevelopingFinished) {
+                    this.developProgress = Math.min(this.developProgress + 5, 100);
+                    document.getElementById('develop-progress').style.width = this.developProgress + '%';
+                    document.getElementById('develop-progress').style.setProperty('--progress-ratio', this.developProgress / 100);
+
+                    // 更新白色遮罩层的透明度
+                    const newOpacity = 0.9 * (1 - this.developProgress / 100);
+                    const patterns = document.querySelectorAll('.instax-developing-pattern');
+                    patterns.forEach(p => p.style.opacity = newOpacity.toString());
+
+                    if (this.developProgress >= 100) {
+                        this.finishDeveloping();
+                    }
+                }
+            },
+
+            skipDevelop() {
+                if (this.developInterval && !this.isDevelopingFinished) {
+                    this.developProgress = 100;
+                    document.getElementById('develop-progress').style.width = '100%';
+                    document.getElementById('develop-progress').style.setProperty('--progress-ratio', 1);
+                    this.finishDeveloping();
+                }
+            },
+
+            finishDeveloping() {
+                // 防止多次调用
+                if (this.isDevelopingFinished) {
+                    console.log('finishDeveloping already called, skipping');
+                    return;
+                }
+                this.isDevelopingFinished = true;
+
+                console.log('finishDeveloping called');
+                clearInterval(this.developInterval);
+                this.developInterval = null;
+
+                // 完全移除白色遮罩层
+                const patterns = document.querySelectorAll('.instax-developing-pattern');
+                patterns.forEach(p => p.style.opacity = '0');
+
+                // 关键修复：移除 img 标签的内联 filter，让父容器的 CSS 滤镜类生效
+                const ejectedImage = document.getElementById('ejected-image');
+                if (ejectedImage) {
+                    ejectedImage.style.filter = '';
+                    console.log('已移除 img 内联 filter，启用父容器 CSS 滤镜');
+                }
+
+                // 启用全屏下滑返回功能（显影完成后立即可用）
+                this.enableFullScreenSwipeToGoBack();
+
+                // 捕获带滤镜效果的照片数据，确保下载时和显示一致
+                try {
+                    const ejectedImage = document.getElementById('ejected-image');
+                    if (ejectedImage && ejectedImage.src) {
+                        // 创建canvas来渲染滤镜效果
+                        const captureCanvas = document.createElement('canvas');
+                        const ctx = captureCanvas.getContext('2d');
+
+                        // 使用更高的分辨率来捕获
+                        const captureWidth = 400;
+                        const captureHeight = 400;
+                        captureCanvas.width = captureWidth;
+                        captureCanvas.height = captureHeight;
+
+                        // 绘制白色背景
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillRect(0, 0, captureWidth, captureHeight);
+
+                        // 绘制图片并应用FRGMT BW滤镜
+                        ctx.filter = 'grayscale(100%) contrast(118%) brightness(100%) saturate(0%)';
+                        ctx.drawImage(ejectedImage, 0, 0, captureWidth, captureHeight);
+
+                        // 转换为base64
+                        this.capturedImageData = captureCanvas.toDataURL('image/jpeg', 0.95);
+                        console.log('已捕获带滤镜效果的照片数据');
+                    }
+                } catch (e) {
+                    console.error('捕获滤镜效果失败，使用原始数据:', e);
+                }
+
+                try {
+                    // 保存照片，最多保存50张
+                    const now = new Date();
+                    const photo = {
+                        id: Date.now(),
+                        image: this.capturedImageData,
+                        dateTime: this.formatDateTime(now)
+                    };
+
+                    console.log('准备保存照片，当前数量:', this.photos.length);
+                    console.log('保存的图片数据类型:', typeof this.capturedImageData);
+                    console.log('保存的图片数据长度:', this.capturedImageData ? this.capturedImageData.length : 0);
+                    console.log('保存的图片数据前100字符:', this.capturedImageData ? this.capturedImageData.substring(0, 100) : 'empty');
+
+                    this.photos.unshift(photo);
+                    console.log('照片已添加，当前数量:', this.photos.length);
+
+                    // 如果超过50张，删除最旧的照片
+                    if (this.photos.length > 50) {
+                        this.photos = this.photos.slice(0, 50);
+                        console.log('超过50张，已删除最旧的照片');
+                    }
+
+                    this.savePhotos();
+                    console.log('调用 updateGallery');
+                    this.updateGallery();
+                    console.log('updateGallery 调用完成');
+                    this.currentPhotoIndex = 0;
+                } catch (e) {
+                    console.error('保存照片或更新相册时出错:', e);
+                    // 出错也不影响后续流程
+                }
+
+                // 立即隐藏显影面板（无论前面是否出错）
+                try {
+                    const developPanel = document.getElementById('develop-panel');
+                    if (developPanel) {
+                        developPanel.classList.add('develop-panel-hide');
+                        developPanel.classList.remove('develop-panel-show');
+                    }
+                } catch (e) {
+                    console.error('隐藏显影面板时出错:', e);
+                }
+
+                // 隐藏导航栏
+                try {
+                    const cameraNav = document.getElementById('camera-nav');
+                    if (cameraNav) {
+                        cameraNav.classList.add('nav-hidden');
+                        // 强制设置透明度，确保隐藏
+                        cameraNav.style.opacity = '0';
+                    }
+                } catch (e) {
+                    console.error('隐藏导航栏时出错:', e);
+                }
+
+                // 重置进度条和显影状态（为下次拍照做准备）
+                try {
+                    document.getElementById('develop-progress').style.width = '0';
+                    document.getElementById('develop-progress').style.setProperty('--progress-ratio', 0);
+                    const readyIndicator = document.getElementById('ready-indicator');
+                    if (readyIndicator) {
+                        readyIndicator.classList.remove('ready-active');
+                    }
+                    const developStatus = document.getElementById('develop-status');
+                    if (developStatus) {
+                        developStatus.textContent = '摇晃手机加速显影';
+                    }
+
+                    // 不重新启用快门按钮，保持禁用状态
+                    // 用户需要重新上传照片才能启用
+                } catch (e) {
+                    console.error('重置UI状态时出错:', e);
+                }
+
+                // 移除吐出动画类，固定相纸在最终位置
+                try {
+                    const ejectedPhoto = document.getElementById('ejected-photo');
+                    if (ejectedPhoto) {
+                        ejectedPhoto.classList.remove('photo-ejecting');
+                        // 固定在动画结束时的位置，防止二次吐出
+                        ejectedPhoto.style.transform = 'translate(-50%, 40px)';
+                        ejectedPhoto.style.opacity = '1';
+                        ejectedPhoto.style.transition = 'none';
+                    }
+                } catch (e) {
+                    console.error('固定相纸位置时出错:', e);
+                }
+
+                // 显示下滑提示
+                try {
+                    const swipeHint = document.getElementById('swipe-hint');
+                    if (swipeHint) {
+                        setTimeout(() => {
+                            swipeHint.classList.remove('opacity-0');
+                            swipeHint.classList.add('opacity-100');
+                        }, 500);
+                    }
+                } catch (e) {
+                    console.error('显示下滑提示时出错:', e);
+                }
+
+                // 不重置相机和相纸位置，保留照片在页面上供用户点击
+                console.log('finishDeveloping 完成');
+            },
+
+            showPreview(index) {
+                this.currentPhotoIndex = index;
+                const photo = this.photos[index];
+                if (!photo) return;
+
+                const previewImg = document.getElementById('preview-image-full');
+
+                previewImg.src = photo.image;
+                // 移除动画类，直接显示已显影完成的效果
+                previewImg.classList.remove('developing');
+                // 应用FRGMT BW滤镜
+                previewImg.style.filter = 'grayscale(100%) contrast(118%) brightness(100%) saturate(0%)';
+
+                this.showPage('preview');
+            },
+
+            enableSwipeToGoBackOnMainPage() {
+                // 这个方法已经被 enableFullScreenSwipeToGoBack 替代
+                // 保留此方法以免破坏现有代码
+            },
+
+            enableFullScreenSwipeToGoBack() {
+                // 在整个页面上添加下滑事件，任意位置都可以下滑返回
+                const pageCamera = document.getElementById('page-camera');
+                if (!pageCamera || !this.isDevelopingFinished) return;
+
+                let startY = 0;
+                let currentY = 0;
+                let isDragging = false;
+                let hasMoved = false;
+
+                const handleStart = (y) => {
+                    if (!this.isDevelopingFinished) return;
+                    startY = y;
+                    currentY = y;
+                    isDragging = true;
+                    hasMoved = false;
+                };
+
+                const handleMove = (y) => {
+                    if (!isDragging || !this.isDevelopingFinished) return;
+                    currentY = y;
+                    const deltaY = currentY - startY;
+
+                    // 检测是否真的在滑动（避免误触）
+                    if (Math.abs(deltaY) > 10) {
+                        hasMoved = true;
+                    }
+
+                    // 只响应向下滑动
+                    if (deltaY > 0) {
+                        const ejectedPhoto = document.getElementById('ejected-photo');
+
+                        // 相纸跟随淡出（给用户反馈）
+                        if (ejectedPhoto) {
+                            ejectedPhoto.style.transition = 'none';
+                            ejectedPhoto.style.opacity = Math.max(0, 1 - (deltaY / 200));
+                        }
+                    }
+                };
+
+                const handleEnd = () => {
+                    if (!isDragging) return;
+                    isDragging = false;
+
+                    const deltaY = currentY - startY;
+                    const threshold = 100; // 滑动阈值
+
+                    if (deltaY > threshold && this.isDevelopingFinished && hasMoved) {
+                        // 达到阈值，执行返回动画 - 移除类让相机恢复到原位
+                        const cameraContainer = document.getElementById('camera-container');
+                        const ejectedPhoto = document.getElementById('ejected-photo');
+
+                        // 移除上移类，相机会按照CSS定义的2秒缓动动画恢复到原位
+                        if (cameraContainer) {
+                            cameraContainer.classList.remove('camera-moving-up');
+                        }
+
+                        // 相纸快速淡出
+                        if (ejectedPhoto) {
+                            ejectedPhoto.style.transition = 'opacity 0.3s ease-out';
+                            ejectedPhoto.style.opacity = '0';
+                        }
+
+                        setTimeout(() => {
+                            this.closePreviewAndClearPhoto();
+
+                            // 清理样式和移除事件监听
+                            setTimeout(() => {
+                                if (ejectedPhoto) ejectedPhoto.style.transition = '';
+                                const cameraNav = document.getElementById('camera-nav');
+                                if (cameraNav) cameraNav.style.transition = '';
+
+                                // 只移除滑动相关的事件监听器
+                                pageCamera.removeEventListener('touchstart', touchStartHandler);
+                                pageCamera.removeEventListener('touchmove', touchMoveHandler);
+                                pageCamera.removeEventListener('touchend', touchEndHandler);
+                                pageCamera.removeEventListener('mousedown', mouseDownHandler);
+                                pageCamera.removeEventListener('mousemove', mouseMoveHandler);
+                                pageCamera.removeEventListener('mouseup', mouseUpHandler);
+                            }, 2000); // 等待相机动画完成
+                        }, 300);
+                    } else {
+                        // 未达到阈值，相纸恢复透明度
+                        const ejectedPhoto = document.getElementById('ejected-photo');
+
+                        if (ejectedPhoto) {
+                            ejectedPhoto.style.transition = 'opacity 0.3s ease-out';
+                            ejectedPhoto.style.opacity = '1';
+                        }
+
+                        // 清理 transition
+                        setTimeout(() => {
+                            if (ejectedPhoto) ejectedPhoto.style.transition = '';
+                        }, 300);
+                    }
+
+                    startY = 0;
+                    currentY = 0;
+                };
+
+                // 触摸事件处理器
+                const touchStartHandler = (e) => {
+                    handleStart(e.touches[0].clientY);
+                };
+
+                const touchMoveHandler = (e) => {
+                    handleMove(e.touches[0].clientY);
+                };
+
+                const touchEndHandler = () => {
+                    handleEnd();
+                };
+
+                // 鼠标事件处理器
+                let mouseDown = false;
+                const mouseDownHandler = (e) => {
+                    if (!this.isDevelopingFinished) return;
+                    mouseDown = true;
+                    handleStart(e.clientY);
+                };
+
+                const mouseMoveHandler = (e) => {
+                    if (mouseDown && this.isDevelopingFinished) {
+                        handleMove(e.clientY);
+                    }
+                };
+
+                const mouseUpHandler = () => {
+                    if (mouseDown) {
+                        mouseDown = false;
+                        handleEnd();
+                    }
+                };
+
+                // 添加触摸事件到整个页面
+                pageCamera.addEventListener('touchstart', touchStartHandler, { passive: true });
+                pageCamera.addEventListener('touchmove', touchMoveHandler, { passive: true });
+                pageCamera.addEventListener('touchend', touchEndHandler);
+
+                // 添加鼠标事件到整个页面（用于桌面测试）
+                pageCamera.addEventListener('mousedown', mouseDownHandler);
+                pageCamera.addEventListener('mousemove', mouseMoveHandler);
+                pageCamera.addEventListener('mouseup', mouseUpHandler);
+
+                // 保存事件处理器引用，以便后续移除
+                this.swipeHandlers = {
+                    touchStartHandler,
+                    touchMoveHandler,
+                    touchEndHandler,
+                    mouseDownHandler,
+                    mouseMoveHandler,
+                    mouseUpHandler
+                };
+
+                console.log('全屏下滑返回功能已启用');
+            },
+
+            closePreviewAndClearPhoto() {
+                console.log('开始返回首页，重置所有状态...');
+
+                // 先切换到相机页面
+                this.showPage('camera');
+
+                // 隐藏下滑提示（如果存在）
+                try {
+                    const swipeHint = document.getElementById('swipe-hint');
+                    if (swipeHint) {
+                        swipeHint.classList.add('opacity-0');
+                        swipeHint.classList.remove('opacity-100');
+                    }
+                } catch (e) {
+                    console.error('隐藏下滑提示时出错:', e);
+                }
+
+                const cameraContainer = document.getElementById('camera-container');
+                const cameraNav = document.getElementById('camera-nav');
+                const pageCamera = document.getElementById('page-camera');
+
+                // 移除全屏滑动事件监听器（只移除滑动相关的事件）
+                if (pageCamera && this.swipeHandlers) {
+                    pageCamera.removeEventListener('touchstart', this.swipeHandlers.touchStartHandler);
+                    pageCamera.removeEventListener('touchmove', this.swipeHandlers.touchMoveHandler);
+                    pageCamera.removeEventListener('touchend', this.swipeHandlers.touchEndHandler);
+                    pageCamera.removeEventListener('mousedown', this.swipeHandlers.mouseDownHandler);
+                    pageCamera.removeEventListener('mousemove', this.swipeHandlers.mouseMoveHandler);
+                    pageCamera.removeEventListener('mouseup', this.swipeHandlers.mouseUpHandler);
+                    this.swipeHandlers = null;
+                }
+
+                // 清空吐出的照片
+                const ejectedPhoto = document.getElementById('ejected-photo');
+                if (ejectedPhoto) {
+                    ejectedPhoto.classList.remove('photo-ejecting');
+                    ejectedPhoto.style.opacity = '0';
+                    ejectedPhoto.style.transform = '';
+                    ejectedPhoto.style.transition = '';
+                }
+
+                // 确保相机在正确位置（如果动画还没完成，强制设置）
+                if (cameraContainer) {
+                    cameraContainer.classList.remove('camera-moving-up');
+                    cameraContainer.style.transform = 'translateY(0%)';
+                }
+
+                // 立即显示底部导航栏
+                if (cameraNav) {
+                    cameraNav.classList.remove('nav-hidden');
+                    cameraNav.style.transition = 'opacity 0.3s ease-in-out';
+                    cameraNav.style.opacity = '1';
+                }
+
+                // 完全重置显影状态变量
+                this.developProgress = 0;
+                this.isDevelopingFinished = false;
+                if (this.developInterval) {
+                    clearInterval(this.developInterval);
+                    this.developInterval = null;
+                }
+
+                // 重置显影面板
+                const developPanel = document.getElementById('develop-panel');
+                if (developPanel) {
+                    developPanel.classList.add('develop-panel-hide');
+                    developPanel.classList.remove('develop-panel-show');
+                }
+
+                // 重置进度条
+                document.getElementById('develop-progress').style.width = '0';
+                document.getElementById('develop-progress').style.setProperty('--progress-ratio', 0);
+
+                // 重置白色遮罩层
+                const patterns = document.querySelectorAll('.instax-developing-pattern');
+                patterns.forEach(p => {
+                    p.style.opacity = '';
+                    p.style.transition = '';
+                });
+
+                // 重置照片滤镜
+                const ejectedImage = document.getElementById('ejected-image');
+                ejectedImage.classList.remove('developing');
+                ejectedImage.style.filter = '';
+                ejectedImage.src = '';
+
+                // 重置捕获状态，准备下一次拍照
+                this.capturedImageData = null;
+
+                // 恢复摄像头状态
+                if (this.cameraStream) {
+                    document.getElementById('shutter-btn').classList.add('shutter-ready');
+                    document.getElementById('shutter-btn').disabled = false;
+                    document.getElementById('ready-indicator').classList.add('ready-active');
+                }
+
+                // 重置成功状态 - LED保持红色（就绪状态）
+                const led = document.getElementById('camera-led');
+                led.classList.remove('success', 'active', 'error');
+                // LED保持默认红色
+
+                // 进度条恢复灰色
+                const progressBar = document.getElementById('progress-bar');
+                progressBar.classList.remove('progress-processing', 'progress-success', 'progress-error');
+                progressBar.style.width = '75%';
+
+                const readyText = document.getElementById('ready-text');
+                readyText.textContent = '就绪';
+                readyText.setAttribute('data-text', '就绪');
+                readyText.classList.remove('text-shimmer', 'text-pulse-success');
+                readyText.style.color = 'rgba(255, 255, 255, 0.6)';
+
+                // 最终确保底部导航栏显示
+                const finalCameraNav = document.getElementById('camera-nav');
+                if (finalCameraNav) {
+                    finalCameraNav.classList.remove('nav-hidden');
+                    finalCameraNav.style.opacity = '1';
+                }
+
+                // 清理所有临时样式，延迟执行确保动画完成
+                setTimeout(() => {
+                    const cleanupContainer = document.getElementById('camera-container');
+                    const cleanupNav = document.getElementById('camera-nav');
+                    if (cleanupContainer) cleanupContainer.style.transition = '';
+                    if (cleanupNav) cleanupNav.style.transition = '';
+                }, 1000);
+
+                console.log('closePreviewAndClearPhoto 完成，所有状态已重置');
+            },
+
+            closePreview() {
+                // 从预览页面关闭，调用完整的重置逻辑
+                this.closePreviewAndClearPhoto();
+            },
+
+            deleteCurrentPhoto() {
+                if (confirm('确定要删除这张照片吗？')) {
+                    this.photos.splice(this.currentPhotoIndex, 1);
+                    this.savePhotos();
+                    this.updateGallery();
+                    this.closePreview();
+                }
+            },
+
+            downloadCurrentPhoto() {
+                const photo = this.photos[this.currentPhotoIndex];
+                if (!photo) return;
+
+                // 使用 html2canvas 来截取整个拍立得相框
+                // 如果没有引入 html2canvas，则手动绘制
+                this.downloadPolaroidFrame(photo);
+            },
+
+            downloadPolaroidFrame(photo) {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+
+                // 相纸真实比例 72:86（72mm宽，86mm高，照片62×62mm正方形），设置高分辨率
+                const scale = 4; // 4倍分辨率保证清晰度
+                const frameWidth = 72 * scale; // 72mm 宽
+                const frameHeight = 86 * scale; // 86mm 高
+
+                // 白边：上面5mm，下面19mm，左右5mm
+                const paddingTop = 5 * scale;    // 上边距 5mm
+                const paddingBottom = 19 * scale; // 下边距 19mm
+                const paddingX = 5 * scale;       // 左右边距 各5mm
+
+                const imageTop = paddingTop;
+                const imageLeft = paddingX;
+                const imageWidth = frameWidth - (paddingX * 2); // 62mm（照片宽度）
+                const imageHeight = 62 * scale; // 62mm（照片高度，正方形）
+
+                canvas.width = frameWidth;
+                canvas.height = frameHeight;
+
+                // 1. 绘制白色背景（渐变效果）- 添加圆角
+                const bgGradient = ctx.createLinearGradient(0, 0, frameWidth, frameHeight);
+                bgGradient.addColorStop(0, '#ffffff');
+                bgGradient.addColorStop(1, '#f2f4f2');
+
+                // 绘制圆角矩形（外框）
+                this.roundRect(ctx, 0, 0, frameWidth, frameHeight, 6 * scale);
+                ctx.fillStyle = bgGradient;
+                ctx.fill();
+
+                // 2. 绘制图片区域（黑色背景）- 无圆角，直角矩形
+                ctx.fillStyle = '#1a1a1a';
+                ctx.fillRect(imageLeft, imageTop, imageWidth, imageHeight);
+
+                // 3. 加载并绘制图片
+                const img = new Image();
+                // 移除 crossOrigin 避免 CORS 问题
+
+                img.onload = () => {
+                    // 应用FRGMT BW黑白滤镜
+                    ctx.filter = 'grayscale(100%) contrast(118%) brightness(100%) saturate(0%)';
+
+                    // 绘制图片 - 无圆角裁剪
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.rect(imageLeft, imageTop, imageWidth, imageHeight);
+                    ctx.clip();
+                    ctx.drawImage(img, imageLeft, imageTop, imageWidth, imageHeight);
+                    ctx.restore();
+
+                    // 4. 添加图片上的渐变叠加
+                    ctx.filter = 'none';
+                    const imgGradient = ctx.createLinearGradient(imageLeft, imageTop, imageLeft + imageWidth, imageTop + imageHeight);
+                    imgGradient.addColorStop(0, 'rgba(255,255,255,0)');
+                    imgGradient.addColorStop(0.5, 'rgba(255,255,255,0.05)');
+                    imgGradient.addColorStop(1, 'rgba(255,255,255,0)');
+                    ctx.fillStyle = imgGradient;
+                    ctx.fillRect(imageLeft, imageTop, imageWidth, imageHeight);
+
+                    // 5. 添加暗角效果 - 细腻层次感
+                    const vignetteGradient = ctx.createRadialGradient(
+                        imageLeft + imageWidth / 2, imageTop + imageHeight / 2, Math.min(imageWidth, imageHeight) * 0.5,
+                        imageLeft + imageWidth / 2, imageTop + imageHeight / 2, Math.max(imageWidth, imageHeight) / 2
+                    );
+                    vignetteGradient.addColorStop(0, 'rgba(0,0,0,0)');
+                    vignetteGradient.addColorStop(1, 'rgba(0,0,0,0.25)');
+                    ctx.fillStyle = vignetteGradient;
+                    ctx.fillRect(imageLeft, imageTop, imageWidth, imageHeight);
+
+                    // 6. FRGMT BW: 添加细腻的暗部层次
+                    ctx.globalCompositeOperation = 'multiply';
+                    const deepShadowGradient = ctx.createRadialGradient(
+                        imageLeft + imageWidth / 2, imageTop + imageHeight / 2, Math.min(imageWidth, imageHeight) * 0.5,
+                        imageLeft + imageWidth / 2, imageTop + imageHeight / 2, Math.max(imageWidth, imageHeight) / 2
+                    );
+                    deepShadowGradient.addColorStop(0, 'rgba(0, 0, 0, 0)');
+                    deepShadowGradient.addColorStop(0.8, 'rgba(0, 0, 0, 0.08)');
+                    deepShadowGradient.addColorStop(1, 'rgba(0, 0, 0, 0.15)');
+                    ctx.fillStyle = deepShadowGradient;
+                    ctx.fillRect(imageLeft, imageTop, imageWidth, imageHeight);
+                    ctx.globalCompositeOperation = 'source-over';
+
+                    // 7. 添加细腻的胶片颗粒噪点
+                    this.addFineGrain(ctx, imageLeft, imageTop, imageWidth, imageHeight);
+
+                    // 8. 下载图片
+                    const link = document.createElement('a');
+                    link.download = `fragmt_bw_${photo.id}.png`;
+                    link.href = canvas.toDataURL('image/png', 1.0);
+                    link.click();
+                };
+
+                img.onerror = () => {
+                    alert('图片加载失败，无法下载');
+                };
+
+                img.src = photo.image;
+            },
+
+            addPaperTexture(ctx, width, height) {
+                // 添加真实胶片颗粒感
+                const imageData = ctx.getImageData(0, 0, width, height);
+                const data = imageData.data;
+
+                for (let i = 0; i < data.length; i += 4) {
+                    // 添加中等强度的噪点，模拟胶片颗粒
+                    const noise = (Math.random() - 0.5) * 6;
+                    data[i] += noise;     // R
+                    data[i + 1] += noise; // G
+                    data[i + 2] += noise; // B
+                }
+
+                ctx.putImageData(imageData, 0, 0);
+            },
+
+            addCoarseGrain(ctx, x, y, width, height) {
+                // 添加细腻的胶片颗粒噪点 - 静谧质感
+                const imageData = ctx.getImageData(x, y, width, height);
+                const data = imageData.data;
+
+                for (let i = 0; i < data.length; i += 4) {
+                    // 添加细腻的颗粒噪点，模拟高质量黑白胶片
+                    const noise = (Math.random() - 0.5) * 12; // 适中的噪点强度
+                    data[i] += noise;     // R
+                    data[i + 1] += noise; // G
+                    data[i + 2] += noise; // B
+
+                    // 确保值在有效范围内
+                    data[i] = Math.max(0, Math.min(255, data[i]));
+                    data[i + 1] = Math.max(0, Math.min(255, data[i + 1]));
+                    data[i + 2] = Math.max(0, Math.min(255, data[i + 2]));
+                }
+
+                ctx.putImageData(imageData, x, y);
+            },
+
+            addFineGrain(ctx, x, y, width, height) {
+                // 添加细腻的胶片颗粒噪点 - 静谧质感（下载专用）
+                this.addCoarseGrain(ctx, x, y, width, height);
+            },
+
+            roundRect(ctx, x, y, width, height, radius) {
+                ctx.beginPath();
+                this.roundRectPath(ctx, x, y, width, height, radius);
+            },
+
+            roundRectPath(ctx, x, y, width, height, radius) {
+                ctx.moveTo(x + radius, y);
+                ctx.lineTo(x + width - radius, y);
+                ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+                ctx.lineTo(x + width, y + height - radius);
+                ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+                ctx.lineTo(x + radius, y + height);
+                ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+                ctx.lineTo(x, y + radius);
+                ctx.quadraticCurveTo(x, y, x + radius, y);
+            },
+
+            openFullscreen() {
+                const photo = this.photos[this.currentPhotoIndex];
+                if (!photo) return;
+
+                const fullscreenImage = document.getElementById('fullscreen-image');
+                fullscreenImage.src = photo.image;
+                fullscreenImage.style.filter = 'grayscale(100%) contrast(118%) brightness(100%) saturate(0%)';
+                document.getElementById('fullscreen-modal').classList.remove('hidden');
+                document.getElementById('fullscreen-modal').classList.add('flex');
+            },
+
+            closeFullscreen() {
+                document.getElementById('fullscreen-modal').classList.add('hidden');
+                document.getElementById('fullscreen-modal').classList.remove('flex');
+            },
+
+            updateGallery() {
+                try {
+                    const container = document.getElementById('gallery-photos');
+
+                    if (!container) {
+                        console.error("找不到相册容器元素 gallery-photos");
+                        return;
+                    }
+
+                    console.log('updateGallery 调用，当前照片数量:', this.photos.length);
+
+                    if (this.photos.length === 0) {
+                        // 显示空状态
+                        container.innerHTML = `
+                            <div id="empty-gallery" class="text-center py-20 w-full">
+                                <span class="material-symbols-outlined text-6xl text-gray-600">photo_library</span>
+                                <p class="mt-4 text-gray-500 font-space-grotesk">还没有照片</p>
+                                <p class="text-sm text-gray-600">拍摄你的第一张拍立得吧！</p>
+                            </div>
+                        `;
+                        console.log('显示空状态');
+                        return;
+                    }
+
+                    // 单列垂直布局，照片间隔20px，使用真实Instax比例和固定大小
+                    const photosHTML = this.photos.map((photo, index) => {
+                        console.log(`生成照片 ${index} 的 HTML，时间: ${photo.dateTime}`);
+                        console.log(`照片 ${index} 的 image 数据长度:`, photo.image ? photo.image.length : 0);
+
+                        // 使用FRGMT BW黑白滤镜
+                        const filterStyle = 'grayscale(100%) contrast(118%) brightness(100%) saturate(0%)';
+
+                        return `
+                        <article class="polaroid bg-white polaroid-shadow transition-transform hover:scale-[1.02] active:scale-[0.98] cursor-pointer mx-auto" onclick="app.showPreviewFromGallery(${index})">
+                            <div class="polaroid-image-area overflow-hidden relative bg-[#1a1a1a] fragmt-bw-filter fragmt-bw-sharp">
+                                <div class="vignette-light"></div>
+                                <img class="w-full h-full" src="${photo.image}" alt="拍立得照片" style="filter: ${filterStyle};"/>
+                                <div class="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent pointer-events-none"></div>
+                            </div>
+                        </article>
+                    `;
+                    }).join('');
+
+                    container.innerHTML = photosHTML;
+                    console.log('updateGallery 完成，HTML 已更新，生成了', this.photos.length, '张照片');
+                } catch (e) {
+                    console.error("updateGallery 出错:", e);
+                    console.error('错误堆栈:', e.stack);
+                }
+            },
+
+            showPreviewFromGallery(index) {
+                this.showPreview(index);
+            },
+
+            showPage(pageName) {
+                document.querySelectorAll('.page').forEach(page => {
+                    page.classList.remove('active');
+                });
+                document.getElementById('page-' + pageName).classList.add('active');
+
+                // 更新导航状态
+                const navHome = document.getElementById('nav-home');
+                const navGallery = document.getElementById('nav-gallery');
+
+                if (navHome && navGallery) {
+                    if (pageName === 'camera') {
+                        navHome.querySelector('span').classList.add('filled');
+                        navGallery.querySelector('span').classList.remove('filled');
+                    } else if (pageName === 'gallery') {
+                        navHome.querySelector('span').classList.remove('filled');
+                        navGallery.querySelector('span').classList.add('filled');
+                    }
+                }
+            },
+
+            savePhotos() {
+                // 不保存到 localStorage，刷新页面后清空
+            },
+
+            loadPhotos() {
+                // 不加载 localStorage 中的照片
+                this.photos = [];
+            },
+
+            formatDateTime(date) {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                const hours = String(date.getHours()).padStart(2, '0');
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                const seconds = String(date.getSeconds()).padStart(2, '0');
+                return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+            }
+        };
+
+        // 启动应用
+        document.addEventListener('DOMContentLoaded', () => {
+            try {
+                console.log('DOM 加载完成，正在初始化应用...');
+                app.init();
+                console.log('应用初始化成功');
+            } catch (error) {
+                console.error('应用初始化失败:', error);
+                console.error('错误堆栈:', error.stack);
+
+                // 显示错误信息给用户
+                document.body.innerHTML = `
+                    <div style="padding: 20px; font-family: sans-serif;">
+                        <h1>应用加载失败</h1>
+                        <p>错误信息: ${error.message}</p>
+                        <p>请刷新页面重试，或联系技术支持。</p>
+                        <details>
+                            <summary>错误详情</summary>
+                            <pre>${error.stack}</pre>
+                        </details>
+                    </div>
+                `;
+            }
+        });
+    </script>
+</body>
+</html>

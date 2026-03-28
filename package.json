@@ -1,0 +1,27 @@
+{
+  "name": "instax-camera-web",
+  "version": "2.0.0",
+  "description": "拍立得相机 Web 应用 - FRAGMENT BW 黑白滤镜",
+  "main": "index.html",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "python3 -m http.server 8000",
+    "serve": "npx http-server -p 8000"
+  },
+  "keywords": [
+    "camera",
+    "instax",
+    "polaroid",
+    "photography",
+    "web-camera",
+    "fragment",
+    "black-white"
+  ],
+  "author": "Devin-C-Dev",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2"
+  },
+  "devDependencies": {}
+}
